@@ -4,12 +4,86 @@
   </body>
 
   <script type="text/javascript">
+    const vertexShader = `
+      attribute vec4 position; // each vertex accepts a 4-part position (3rd and 4th are 0; 4th is ignored)
+
+      void main() { // for each provided vertex...
+        gl_Position = position; // take the position as given above, unchanged
+        // the camera sees orthogonally from -1 to 1 in three axes
+      }
+    `
+
+    const fragmentShader = `
+      void main() { // for each rendered fragment
+        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // its colour should be opaque red
+      }
+    `
+
+    const triangle = [ // each pair of numbers defines one vertex
+      -1, -1, // lower left
+      -1,  1, // upper left
+       1, -1, // lower right
+    ]
+
+    // compile a shader from source
+    function compileShader(gl, type, source) {
+      const out = gl.createShader(type)
+
+      gl.shaderSource(out, source)
+      gl.compileShader(out)
+
+      if (!gl.getShaderParameter(out, gl.COMPILE_STATUS))
+        throw 'Failed to compile shader: ' + gl.getShaderInfoLog(out)
+
+      return out;
+    }
+
+    // perform a draw operation
     function run() {
       const canvas = document.getElementById('hello-world')
       const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl')
 
-      gl.clearColor(0, 0, 1, 1)
-      gl.clear(gl.COLOR_BUFFER_BIT)
+      const program = gl.createProgram()
+      gl.attachShader(program, compileShader(gl, gl.VERTEX_SHADER, vertexShader))
+      gl.attachShader(program, compileShader(gl, gl.FRAGMENT_SHADER, fragmentShader))
+      gl.linkProgram(program)
+
+      if (!gl.getProgramParameter(program, gl.LINK_STATUS)) 
+        throw 'Shader program error: ' + gl.getProgramInfoLog(program)
+
+      const positionAttribute = gl.getAttribLocation(program, 'position') // address of 'position' attribute declared in vertex shader
+
+      gl.clearColor(0, 0, 1, 1) // STATE: set the 'clear color' to opaque blue
+
+      gl.useProgram(program) // STATE: the above program should be used to paint when performing draw operations
+
+      // Roughly speaking, the operations above are one-time use, while the operations below are per-frame; but YMMV
+
+      const vertexBuffer = gl.createBuffer()
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer) // STATE: [vertexBuffer] is now bound to ARRAY_BUFFER
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(triangle), gl.STATIC_DRAW) // DATA: copy [triangle] as floats into current ARRAY_BUFFER binding; strong cache
+
+      gl.vertexAttribPointer( // STATE: make what's in ARRAY_BUFFER available to the shader as vertex data
+          positionAttribute, // the address of the attribute being bound ('position' in vertex shader)
+          2, // how many numbers to read for each vertex
+          gl.FLOAT, // the data type of each vertex coordinate
+          false, // ignored
+          0, // 'stride' to use for walking between vertices; 0 - sentinel meaning 'maximally dense'
+          0 // byte offset to start reading at
+      )
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, null) // STATE: unbind ARRAY_BUFFER; we're done with it now
+
+      gl.clear(gl.COLOR_BUFFER_BIT) // ACTION: clear the color buffer (to the clear color set above)
+
+      gl.enableVertexAttribArray(positionAttribute) // STATE: activate the position attribute for drawing (enumerate buffer data through it)
+      gl.drawArrays( // ACTION: paint to the screen (using )
+          gl.TRIANGLES, // drawing mode: each set of 3 vertices in the array is a triangle
+          0, // the vertex (not byte or coordinate) to start drawing with
+          3 // how many vertices to draw in total
+      )
+
+      gl.disableVertexAttribArray(positionAttribute) // STATE: deactivate the position attribute for drawing
     }
   </script>
 </html>
