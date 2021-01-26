@@ -6,16 +6,22 @@
   <script type="text/javascript">
     const vertexShader = `
       attribute vec4 position; // each vertex accepts a 4-part position (3rd and 4th are 0; 4th is ignored)
+      attribute vec3 color; // each vertex also accepts a 3-part RGB color
+
+      varying vec3 interp_color;
 
       void main() { // for each provided vertex...
+        interp_color = color; // assign the input colour to an interpolated property for the fragment
         gl_Position = position; // take the position as given above, unchanged
         // the camera sees orthogonally from -1 to 1 in three axes
       }
     `
 
     const fragmentShader = `
+      precision mediump float;
+      varying vec3 interp_color;
       void main() { // for each rendered fragment
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0); // its colour should be opaque red
+        gl_FragColor = vec4(interp_color, 1.0);
       }
     `
 
@@ -23,6 +29,12 @@
       -1, -1, // lower left
       -1,  1, // upper left
        1, -1, // lower right
+    ]
+
+    const colors = [ // colors to go with each vertex
+      1, 0, 0, // red
+      0, 1, 0, // green
+      0, 0, 1  // blue
     ]
 
     // compile a shader from source
@@ -52,8 +64,9 @@
         throw 'Shader program error: ' + gl.getProgramInfoLog(program)
 
       const positionAttribute = gl.getAttribLocation(program, 'position') // address of 'position' attribute declared in vertex shader
+      const colorAttribute = gl.getAttribLocation(program, 'color')
 
-      gl.clearColor(0, 0, 1, 1) // STATE: set the 'clear color' to opaque blue
+      gl.clearColor(0, 0, 0, 1)
 
       gl.useProgram(program) // STATE: the above program should be used to paint when performing draw operations
 
@@ -72,18 +85,25 @@
           0 // byte offset to start reading at
       )
 
+      const colorBuffer = gl.createBuffer() // set up the 'color' attribute, analogous to the above
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer)
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW)
+      gl.vertexAttribPointer(colorAttribute, 3, gl.FLOAT, false, 0, 0)
+
       gl.bindBuffer(gl.ARRAY_BUFFER, null) // STATE: unbind ARRAY_BUFFER; we're done with it now
 
       gl.clear(gl.COLOR_BUFFER_BIT) // ACTION: clear the color buffer (to the clear color set above)
 
       gl.enableVertexAttribArray(positionAttribute) // STATE: activate the position attribute for drawing (enumerate buffer data through it)
-      gl.drawArrays( // ACTION: paint to the screen (using )
+      gl.enableVertexAttribArray(colorAttribute)
+      gl.drawArrays( // ACTION: paint to the screen
           gl.TRIANGLES, // drawing mode: each set of 3 vertices in the array is a triangle
           0, // the vertex (not byte or coordinate) to start drawing with
           3 // how many vertices to draw in total
       )
 
       gl.disableVertexAttribArray(positionAttribute) // STATE: deactivate the position attribute for drawing
+      gl.disableVertexAttribArray(colorAttribute)
     }
   </script>
 </html>
